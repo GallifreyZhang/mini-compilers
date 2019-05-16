@@ -30,7 +30,7 @@ class Grammar:
     
     def __init__(self):
         self.START = ("P", "NT")
-        self.variable_list = (
+        self.variable_list = [
             ("P", "NT"),
             ("D", "NT"),
             ("L", "NT"),
@@ -39,8 +39,8 @@ class Grammar:
             ("E", "NT"),
             ("T", "NT"),
             ("F", "NT")
-        )
-        self.terminal_list = (
+        ]
+        self.terminal_list = [
             ("id", "T"),
             (";", "T"),
             ("int", "T"),
@@ -57,69 +57,70 @@ class Grammar:
             ("=", "T"),
             ("int10", "T"),
             ("else", "T"),
-        )
+        ]
+        self.start_production = [("P", "NT"), [("D", "NT"), ("S", "NT")]]
         self.ProductionGroup = {}
         left = ("P", "NT") # 开始符号
-        right = (
-            (("D", "NT"), ("S", "NT")),
-        )
+        right = [
+            [("D", "NT"), ("S", "NT")],
+        ]
         # self.ProductionGroup.append(left, Production(left, right))
         self.ProductionGroup[left] = right
 
         left = ("D", "NT")
-        right = (
-            (("L", "NT"), ("id", "T"), (";", "T"), ("D", "NT")),
-            (("", "NULL"),),
-        )
+        right = [
+            [("L", "NT"), ("id", "T"), (";", "T"), ("D", "NT")],
+            [("", "NULL")],
+        ]
         self.ProductionGroup[left] = right
 
         left = ("L", "NT")
-        right = (
-            (("int", "T"),),
-            (("float", "T"),),
-        )
+        right = [
+            [("int", "T")],
+            [("float", "T")]
+        ]
         self.ProductionGroup[left] = right 
 
         left = ("S", "NT")
-        right = (
-            (("id", "T"), ("=", "T"), ("E", "NT"), (";", "T")),
-            (("if", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT")),
-            (("if", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT"), ("else", "T"), ("S", "NT")),
-            (("while", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT")),
-            (("S", "NT"), (";", "T"), ("S", "NT"))
-        )
+        right = [
+            [("id", "T"), ("=", "T"), ("E", "NT"), (";", "T")],
+            [("if", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT")],
+            [("if", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT"), ("else", "T"), ("S", "NT")],
+            [("while", "T"), ("(", "T"), ("C", "NT"), (")", "T"), ("S", "NT")],
+            [("S", "NT"), (";", "T"), ("S", "NT")]
+        ]
         self.ProductionGroup[left] = right
 
         left = ("C", "NT")
-        right = (
-            (("E", "NT"), (">", "T"), ("E", "NT")),
-            (("E", "NT"), ("<", "T"), ("E", "NT")),
-            (("E", "NT"), ("==", "T"), ("E", "NT")),
-        )
+        right = [
+            [("E", "NT"), (">", "T"), ("E", "NT")],
+            [("E", "NT"), ("<", "T"), ("E", "NT")],
+            [("E", "NT"), ("==", "T"), ("E", "NT")],
+        ]
         self.ProductionGroup[left] = right
 
         left = ("E", "NT")
-        right = (
-            (("E", "NT"), ("+", "T"), ("T", "NT")),
-            (("E", "NT"), ("-", "T"), ("T", "NT")),
-            (("T", "NT"),),
-        )
+        right = [
+            [("E", "NT"), ("+", "T"), ("T", "NT")],
+            [("E", "NT"), ("-", "T"), ("T", "NT")],
+            [("T", "NT")]
+        ]
         self.ProductionGroup[left] = right
 
         left = ("T", "NT")
-        right = (
-            (("F", "NT"),),
-            (("T", "NT"), ("*", "T"), ("F", "NT")),
-            (("T", "NT"), ("/", "T"), ("F", "NT")),
-        )
+        right = [
+            [("F", "NT")],
+            [("T", "NT"), ("*", "T"), ("F", "NT")],
+            [("T", "NT"), ("/", "T"), ("F", "NT")],
+        ]
         self.ProductionGroup[left] = right
 
         left = ("F", "NT")
-        right = (
-            (("(", "T"), ("E", "NT"), (")", "T")),
-            (("id", "T"),),
-            (("int10", "T"),),
-        )
+        right = [
+            [("(", "T"), ("E", "NT"), (")", "T")],
+            [("id", "T")],
+            [("int10", "T")]
+        ]
         self.ProductionGroup[left] = right
 
 
@@ -189,7 +190,7 @@ class Grammar:
         self.FollowSetGroup = {}
         for v in self.variable_list:
             self.FollowSetGroup[v] = set()
-        self.FollowSetGroup[self.START].add(("$", "T"))
+        self.FollowSetGroup[self.START].add(("$", "END"))
 
         # 遍历所有产生式，初步产生Follow集
         for key in self.ProductionGroup.keys():
@@ -215,14 +216,149 @@ class Grammar:
                             self.FollowSetGroup[production[prod_len-1]] = self.FollowSetGroup[production[prod_len-1]] | self.FollowSetGroup[key]  
                             flag = True    
                             
+    def get_item_set(self):
+        """
+        SLR(1)的项目集闭包 
+        项目集以及项目的定义：
+        对于每一个产生式，项的定义是一个二元组：
+        第一个元素是该产生式，第二个元素是点在产生式中的位置，
+        第一个位置是0，第二个位置是产生式右部的长度
+        项目集的数据结构是一个列表，列表的每一个元素是一个项目
+        项目集族由一个列表和一个GO字典组成
+        列表的下标就是项目集的标号
+        列表的元素就是项目集
 
+        GO字典对应着寻找有效活前缀的DFA
+        字典的key是一个二元组：第一个元素是当前状态，第二个元素是读入的符号
+        value是一个数字，表示进入的状态
 
-    def get_slr1_closure(self):
-        pass
+        扩展文法重新定义文法的结构，文法全部放入一个列表
+        列表的每一项都是一个产生式项，每个产生式项都是一个三元组
+        第一个是文法符号；第二个是个文法符号的列表；第三个是点在产生式中的位置
+        """
+        self.ItemSetGroup = {} # {int : [[[],int], [[],int],]}
+        self.ExtGrammarGroup = []
+        self.ExtGrammarGroup.append([("P'", "NT"), [("P", "NT")]])
+        # # 生成扩展文法项
+        # # TODO: 空产生式的扩展
+        for v in self.variable_list:
+            productions = self.ProductionGroup[v]
+            for production in productions:
+                prod_len = len(production)
+                self.ExtGrammarGroup.append([v, production])
+        
+        J = 0
+        self.ItemSetGroup[0] = []
+        ext_start_production = [self.start_production, 0]
+        self.ItemSetGroup[0].append(ext_start_production)
+        for item in self.ItemSetGroup[0]:
+            res = self.get_closure(item)
+            for r in res:
+                if r not in self.ItemSetGroup[0]:
+                    self.ItemSetGroup[0].append(r)
 
+        self.GO = {}
+        self.GO[0] = {}
+
+        # for item in self.ItemSetGroup[0]:
+        #     ext_prod = item[0]
+        #     if item[1] < len(ext_prod[1]):
+        #         if ext_prod[1][item[1]] not in self.GO[0].keys():
+        #             J += 1
+        #             self.GO[0][ext_prod[1][item[1]]] = J
+        #             self.ItemSetGroup[J] = []
+        #             self.ItemSetGroup[J].append([item[0], item[1]+1])
+        #         else:
+        #             if [item[0], item[1]+1] not in ItemSetGroup[J]:
+        #                 self.ItemSetGroup[J].append([item[0], item[1]+1])
+
+        j = 0
+        while j <= J:
+            self.GO[j] = {}
+            for item in self.ItemSetGroup[j]:
+                ext_prod = item[0]
+                if item[1] < len(ext_prod[1]):
+                    if ext_prod[1][item[1]] not in self.GO[j].keys():
+                        J += 1
+                        self.GO[j][ext_prod[1][item[1]]] = J
+                        self.ItemSetGroup[J] = []
+                        self.ItemSetGroup[J].append([item[0], item[1]+1])
+                    else:
+                        if [item[0], item[1]+1] not in self.ItemSetGroup[J]:
+                            self.ItemSetGroup[J].append([item[0], item[1]+1])
+            j += 1
+
+        self.status_count = j
+
+        # self.ItemSetGroup.append(set())
+        # # 将扩展文法的第一项放入第一个项目集中
+        # self.ItemSetGroup[0].add(0)
+        # ext_len = len(self.ExtGrammarGroup)
+        # for i in self.ItemSetGroup[0]:
+        #     # 计算闭包
+        #     ext_gram = self.ExtGrammarGroup[i]
+        #     gram_len = len(ext_gram[1])
+        #     if ext_gram[2] < gram_len:
+        #         if ext_gram[1][ext_gram[2]][1] == "NT":
+        #             rights = self.ProductionGroup[ext_gram[1][ext_gram[2]]]    
+        #             for right in rights:
+        #                 j = self.ExtGrammarGroup.index([ext_gram[1][ext_gram[2]], right, 0])
+        #                 self.ItemSetGroup[0].add(j)
+        
+
+    def get_closure(self, production):
+        """
+        传入参数production只是一个产生式
+        只求直接闭包：对于res中的新产生式不求闭包，
+        交由上层调用函数解决
+        """
+        # production : [[(), [(),()]], i]
+        res = [production]
+        right_part = production[0][1]
+        prod_len = len(right_part)
+        if production[1] < prod_len and right_part[production[1]][1] == "NT":
+            var_symbol = right_part[production[1]]
+            for ext_prod in self.ExtGrammarGroup:
+                if var_symbol == ext_prod[0]:
+                    if [ext_prod, 0] not in res:
+                        res.append([ext_prod, 0])
+        return res
+
+    def get_slr_table(self):
+        """
+        建立action表和goto表
+        """
+        self.action_table = {}
+        self.goto_table = {}
+        for i in range(self.status_count):
+            self.action_table[i] = {}
+            self.goto_table[i] = {}
+            for v in self.variable_list:
+                if v in self.GO[i].keys():
+                    self.goto_table[i][v] = self.GO[i][v]
+
+            for item in self.ItemSetGroup[i]:
+                right_part = item[0][1]
+                if item[1] < len(right_part):
+                    symbol = right_part[item[1]]
+                    if right_part[item[1]][1] == "T":
+                        if right_part[item[1]] in self.GO[i].keys():
+                            self.action_table[i][right_part[item[1]]] = "S" + str(self.GO[i][right_part[item[1]]])
+                    elif symbol[1] == "NT":
+                        pass
+                elif item[1] == len(right_part):
+                    var_symbol = item[0][0]
+                    for terminal in self.FollowSetGroup[var_symbol]:
+                        self.action_table[i][terminal] = "r" + str(self.ExtGrammarGroup.index(item[0]))
+
+            if [self.ExtGrammarGroup[0][0], 1] in self.ItemSetGroup[i]:
+                self.action_table[i][("$", "END")] = "acc"
+            
 
 if __name__ == "__main__":
     G = Grammar()
     G.get_first_set()
     G.get_follow_set()
+    G.get_item_set()
+    G.get_slr_table()
     pass
