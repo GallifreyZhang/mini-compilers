@@ -1,0 +1,10 @@
+a<b;
+for (i=3;i<10;i=i+1) {
+    if (a < b) {
+        c = c + 1;
+    }
+}
+a=b+c;
+a<=(b+c);
+s="hello world";
+n = 3.454656;
